@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2026 ViaVersion and contributors
+ * Copyright (C) 2016-2025 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -15,26 +15,27 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.viaversion.viaversion.protocols.template;
+package com.viaversion.viaversion.protocols.v1_21_11to26_1.rewriter;
 
 import com.viaversion.nbt.tag.CompoundTag;
 import com.viaversion.viaversion.api.connection.UserConnection;
-import com.viaversion.viaversion.protocols.v1_21_5to1_21_6.packet.ClientboundPacket1_21_6;
+import com.viaversion.viaversion.protocols.v1_21_11to26_1.Protocol1_21_11To26_1;
+import com.viaversion.viaversion.protocols.v1_21_9to1_21_11.packet.ClientboundPacket1_21_11;
 import com.viaversion.viaversion.rewriter.text.NBTComponentRewriter;
 
-final class ComponentRewriter1_99 extends NBTComponentRewriter<ClientboundPacket1_21_6> {
+public final class ComponentRewriter26_1 extends NBTComponentRewriter<ClientboundPacket1_21_11> {
 
-    public ComponentRewriter1_99(final Protocol1_98To1_99 protocol) {
+    public ComponentRewriter26_1(final Protocol1_21_11To26_1 protocol) {
         super(protocol);
     }
 
     @Override
     protected void handleShowItem(final UserConnection connection, final CompoundTag itemTag, final CompoundTag componentsTag) {
         super.handleShowItem(connection, itemTag, componentsTag);
-        if (componentsTag == null) {
-            return;
-        }
 
-        // Remove or update data from componentsTag
+        final int count = itemTag.getInt("count");
+        if (count == 0) {
+            itemTag.putInt("count", 1);
+        }
     }
 }

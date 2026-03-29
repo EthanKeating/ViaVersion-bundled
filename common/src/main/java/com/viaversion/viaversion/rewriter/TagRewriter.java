@@ -149,7 +149,7 @@ public class TagRewriter<C extends ClientboundPacketType> implements com.viavers
         for (int i = 0; i < length; i++) {
             final String registryKey = wrapper.read(Types.STRING);
             final String strippedKey = Key.stripMinecraftNamespace(registryKey);
-            if (toRemoveRegistries.contains(strippedKey)) {
+            if (shouldRemoveRegistry(strippedKey)) {
                 finalLength--;
 
                 final int tagsSize = wrapper.read(Types.VAR_INT);
@@ -282,6 +282,14 @@ public class TagRewriter<C extends ClientboundPacketType> implements com.viavers
         return toAdd.computeIfAbsent(tagType, type -> new ArrayList<>());
     }
 
+    public boolean shouldRemoveRegistry(final String registryKey) {
+        if (protocol.getRegistryDataRewriter() != null
+            && protocol.getRegistryDataRewriter().shouldRemoveRegistry(registryKey)) {
+            return true;
+        }
+        return toRemoveRegistries.contains(registryKey);
+    }
+
     public @Nullable IdRewriteFunction getRewriter(RegistryType tagType) {
         MappingData mappingData = protocol.getMappingData();
         return switch (tagType) {
@@ -289,7 +297,7 @@ public class TagRewriter<C extends ClientboundPacketType> implements com.viavers
             case ITEM -> mappingData != null && mappingData.getItemMappings() != null ? mappingData::getNewItemId : null;
             case ENTITY -> protocol.getEntityRewriter() != null ? id -> protocol.getEntityRewriter().newEntityId(id) : null;
             case ENCHANTMENT -> mappingData != null && mappingData.getEnchantmentMappings() != null ? id -> mappingData.getEnchantmentMappings().getNewId(id) : null;
-            case FLUID, GAME_EVENT -> null;
+            case FLUID, GAME_EVENT, DAMAGE_TYPE, BANNER_PATTERN -> null;
         };
     }
 }

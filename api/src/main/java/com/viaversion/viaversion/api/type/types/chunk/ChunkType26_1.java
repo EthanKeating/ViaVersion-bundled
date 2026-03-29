@@ -20,21 +20,11 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package com.viaversion.viaversion.api.minecraft.item.data;
+package com.viaversion.viaversion.api.type.types.chunk;
 
-import com.viaversion.viaversion.api.minecraft.codec.Ops;
-import com.viaversion.viaversion.api.type.TransformingType;
-import com.viaversion.viaversion.api.type.Type;
-import com.viaversion.viaversion.api.type.Types;
-import com.viaversion.viaversion.util.Key;
+public final class ChunkType26_1 extends ChunkType1_21_5 {
 
-public record DamageResistant(Key typesTagKey) {
-
-    public static final Type<DamageResistant> TYPE = new TransformingType<>(Types.IDENTIFIER, DamageResistant.class, DamageResistant::new, DamageResistant::typesTagKey) {
-
-        @Override
-        public void write(final Ops ops, final DamageResistant value) {
-            ops.writeMap(map -> map.write("types", Types.TAG_KEY, value.typesTagKey));
-        }
-    };
+    public ChunkType26_1(final int ySectionCount, final int globalPaletteBlockBits, final int globalPaletteBiomeBits) {
+        super(new ChunkSectionType26_1(globalPaletteBlockBits, globalPaletteBiomeBits), ySectionCount);
+    }
 }
