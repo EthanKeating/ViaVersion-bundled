@@ -21,7 +21,7 @@ paper = "1.20.4-R0.1-SNAPSHOT"
 legacyBukkit = "1.8.8-R0.1-SNAPSHOT"
 velocity = "3.4.0"
 viaProxy = "[3.0.0,4.0.0)"
-viabackwards = "5.7.2"
+viabackwards = "5.8.0"
 viarewind = "4.1.0-SNAPSHOT"
 
 [libraries]
