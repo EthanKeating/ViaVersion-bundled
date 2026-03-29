@@ -1,13 +1,15 @@
-# ViaVersion
+# ViaVersionBundled
 
 [![Latest Release](https://img.shields.io/github/v/release/ViaVersion/ViaVersion)](https://viaversion.com)
 [![Build Status](https://github.com/ViaVersion/ViaVersion/actions/workflows/build.yml/badge.svg?branch=master)](https://github.com/ViaVersion/ViaVersion/actions)
 [![Discord](https://img.shields.io/badge/chat-on%20discord-blue.svg)](https://viaversion.com/discord)
 
-**Allows the connection of higher client versions to lower server versions -
-it works on any platform you can think of.**
+**Bundled ViaVersion distribution that ships ViaBackwards and ViaRewind inside the same plugin jar.**
 
-This fork also carries embedded ViaBackwards/ViaRewind support in the Bukkit build, so 1.7+ legacy clients can be bridged without installing separate addons on Spigot/Paper.
+This fork carries embedded ViaBackwards/ViaRewind support in the Bukkit build, so 1.7+ legacy clients can be bridged without installing separate addons on Spigot/Paper.
+
+Dependabot is configured in [.github/dependabot.yml](.github/dependabot.yml) and tracks `com.viaversion:viarewind-common`
+and `com.viaversion:viabackwards-common` in Gradle so updates for those stacks open automatically.
 
 The base ViaVersion jar runs on Paper and Velocity. We also have projects integrating ViaVersion to run
 on Fabric, Forge, Sponge, or as a standalone proxy to join from basically any client version on

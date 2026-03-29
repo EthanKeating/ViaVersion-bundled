@@ -26,7 +26,7 @@ plugins {
     id("org.gradle.toolchains.foojay-resolver-convention") version "1.0.0"
 }
 
-rootProject.name = "viaversion-parent"
+rootProject.name = "via-version-bundled"
 
 includeBuild("build-logic")
 

@@ -7,8 +7,12 @@ updates:
     schedule:
       interval: "monthly"
   - package-ecosystem: "gradle"
+    open-pull-requests-limit: 10
     cooldown:
       default-days: 7
     directory: "/"
     schedule:
-      interval: "monthly"
+      interval: "weekly"
+    allow:
+      - dependency-name: "com.viaversion:viarewind-common"
+      - dependency-name: "com.viaversion:viabackwards-common"
