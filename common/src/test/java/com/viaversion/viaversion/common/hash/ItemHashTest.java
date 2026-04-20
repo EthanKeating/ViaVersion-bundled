@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2025 ViaVersion and contributors
+ * Copyright (C) 2016-2026 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -69,6 +69,12 @@ public class ItemHashTest extends PlatformTestBase {
     @BeforeEach
     void resetHasher() {
         hasher.reset();
+    }
+
+    private HashOps hasher(final Class<? extends Protocol<?, ?, ?, ?>> protocolClass) {
+        final Protocol<?, ?, ?, ?> protocol = Via.getManager().getProtocolManager().getProtocol(protocolClass);
+        final CodecRegistryContext context = new CodecRegistryContext(null, CodecContext.RegistryAccess.of(protocol), false);
+        return new HashOps(context, HashFunction.CRC32C);
     }
 
     @Test

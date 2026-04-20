@@ -25,6 +25,7 @@ import com.viaversion.viaversion.api.protocol.packet.PacketWrapper;
 import com.viaversion.viaversion.api.type.Types;
 import com.viaversion.viaversion.protocols.v1_21_11to26_1.Protocol1_21_11To26_1;
 import com.viaversion.viaversion.protocols.v1_21_11to26_1.packet.ServerboundPackets26_1;
+import com.viaversion.viaversion.protocols.v1_21_11to26_1.storage.PlayerSneaking;
 import com.viaversion.viaversion.protocols.v1_21_5to1_21_6.packet.ServerboundPackets1_21_6;
 import com.viaversion.viaversion.protocols.v1_21_9to1_21_11.packet.ClientboundPacket1_21_11;
 import com.viaversion.viaversion.protocols.v1_21_9to1_21_11.packet.ClientboundPackets1_21_11;
@@ -38,20 +39,22 @@ public final class EntityPacketRewriter26_1 extends EntityRewriter<ClientboundPa
 
     @Override
     public void registerPackets() {
-        registerTrackerWithData1_21_9(ClientboundPackets1_21_11.ADD_ENTITY, EntityTypes1_21_11.FALLING_BLOCK);
-        registerSetEntityData(ClientboundPackets1_21_11.SET_ENTITY_DATA);
-        registerRemoveEntities(ClientboundPackets1_21_11.REMOVE_ENTITIES);
-        registerPlayerAbilities(ClientboundPackets1_21_11.PLAYER_ABILITIES);
-        registerGameEvent(ClientboundPackets1_21_11.GAME_EVENT);
-        registerLogin1_20_5(ClientboundPackets1_21_11.LOGIN);
-        registerRespawn1_20_5(ClientboundPackets1_21_11.RESPAWN);
+        protocol.appendClientbound(ClientboundPackets1_21_11.RESPAWN, wrapper -> {
+            wrapper.user().get(PlayerSneaking.class).setSneaking(false);
+        });
 
+        protocol.registerServerbound(ServerboundPackets26_1.PLAYER_INPUT, wrapper -> {
+            final byte flags = wrapper.passthrough(Types.BYTE);
+            final boolean pressingShift = (flags & 1 << 5) != 0;
+            wrapper.user().get(PlayerSneaking.class).setSneaking(pressingShift);
+        });
         protocol.registerServerbound(ServerboundPackets26_1.INTERACT, wrapper -> {
             final int entityId = wrapper.passthrough(Types.VAR_INT);
             wrapper.write(Types.VAR_INT, 0); // Interact
             final int hand = wrapper.passthrough(Types.VAR_INT);
             final Vector3d location = wrapper.read(Types.LOW_PRECISION_VECTOR);
             final boolean secondaryAction = wrapper.passthrough(Types.BOOLEAN);
+            wrapper.user().get(PlayerSneaking.class).setSneaking(secondaryAction);
 
             // Send interact at as well
             final PacketWrapper interactAtPacket = wrapper.create(ServerboundPackets1_21_6.INTERACT);
@@ -64,37 +67,25 @@ public final class EntityPacketRewriter26_1 extends EntityRewriter<ClientboundPa
             interactAtPacket.write(Types.BOOLEAN, secondaryAction);
             interactAtPacket.sendToServer(Protocol1_21_11To26_1.class);
         });
-        protocol.registerServerbound(ServerboundPackets26_1.ATTACK, ServerboundPackets1_21_6.INTERACT, wrapper -> {
-            wrapper.passthrough(Types.VAR_INT); // Entity ID
-            wrapper.write(Types.VAR_INT, 1); // Attack
-            wrapper.write(Types.BOOLEAN, false); // Secondary action
-        });
-        protocol.registerServerbound(ServerboundPackets26_1.SPECTATE_ENTITY, ServerboundPackets1_21_6.INTERACT, wrapper -> {
-            wrapper.passthrough(Types.VAR_INT); // Entity ID
-            wrapper.write(Types.VAR_INT, 1); // Attack
-            wrapper.write(Types.BOOLEAN, true); // Secondary action
-        });
+        protocol.registerServerbound(ServerboundPackets26_1.ATTACK, ServerboundPackets1_21_6.INTERACT, this::writeInteract);
+        protocol.registerServerbound(ServerboundPackets26_1.SPECTATE_ENTITY, ServerboundPackets1_21_6.INTERACT, this::writeInteract);
+    }
+
+    private void writeInteract(final PacketWrapper wrapper) {
+        wrapper.passthrough(Types.VAR_INT); // Entity ID
+        wrapper.write(Types.VAR_INT, 1); // Attack
+        wrapper.write(Types.BOOLEAN, wrapper.user().get(PlayerSneaking.class).sneaking()); // Secondary action
     }
 
     @Override
     protected void registerRewrites() {
         final EntityDataTypes26_1 entityDataTypes = protocol.mappedTypes().entityDataTypes();
-        filter().mapDataType(id -> {
-            int mappedId = id;
-            if (mappedId >= entityDataTypes.catSoundVariant.typeId()) {
-                mappedId++;
-            }
-            if (mappedId >= entityDataTypes.cowSoundVariant.typeId()) {
-                mappedId++;
-            }
-            if (mappedId >= entityDataTypes.pigSoundVariant.typeId()) {
-                mappedId++;
-            }
-            if (mappedId >= entityDataTypes.chickenSoundVariant.typeId()) {
-                mappedId++;
-            }
-            return entityDataTypes.byId(mappedId);
-        });
+        dataTypeMapper()
+            .added(entityDataTypes.catSoundVariant)
+            .added(entityDataTypes.cowSoundVariant)
+            .added(entityDataTypes.pigSoundVariant)
+            .added(entityDataTypes.chickenSoundVariant)
+            .register();
         registerEntityDataTypeHandler(
             entityDataTypes.itemType,
             entityDataTypes.blockStateType,
@@ -108,11 +99,6 @@ public final class EntityPacketRewriter26_1 extends EntityRewriter<ClientboundPa
         filter().type(EntityTypes1_21_11.VILLAGER).addIndex(19); // Is villager data finalized
         filter().type(EntityTypes1_21_11.ZOMBIE_VILLAGER).addIndex(21); // Is villager data finalized
         filter().type(EntityTypes1_21_11.ABSTRACT_AGEABLE).addIndex(17); // Age locked
-    }
-
-    @Override
-    public void onMappingDataLoaded() {
-        mapTypes();
     }
 
     @Override

@@ -92,6 +92,19 @@ public abstract class EntityRewriter<C extends ClientboundPacketType, T extends 
     }
 
     /**
+     * Registers a first-pass handler to remap entity data types via {@code rewriter.protocol().mappedTypes().entityDataTypes().byId(typeId)}
+     * <p>
+     * Removed source types are intentionally left untouched during the initial handler, so entity-specific handlers can
+     * still manually remap them before the final cancellation runs (unless something sent invalid packets for untracked entities).
+     *
+     * @return configurable type remapper
+     */
+    public EntityDataFilter.DataTypeMapper dataTypeMapper() {
+        Preconditions.checkNotNull(protocol.mappedTypes(), "Protocol does not override mappedTypes, use filter().mapDataType instead");
+        return new EntityDataFilter.DataTypeMapper(this);
+    }
+
+    /**
      * Registers an entity data filter.
      * Note that {@link EntityDataFilter.Builder#register()} already calls this method.
      *
@@ -156,6 +169,17 @@ public abstract class EntityRewriter<C extends ClientboundPacketType, T extends 
     }
 
     @Override
+    public void onMappingDataLoaded() {
+        if (protocol.getMappingData() != null && !Mappings.isFullIdentity(protocol.getMappingData().getEntityMappings())) {
+            mapTypes();
+        }
+    }
+
+    public @Nullable Mappings typeMappings() {
+        return typeMappings;
+    }
+
+    @Override
     public String mappedEntityIdentifier(final String identifier) {
         if (typeMappings instanceof final FullMappings fullMappings) {
             final String mappedIdentifier = fullMappings.mappedIdentifier(identifier);
@@ -164,6 +188,13 @@ public abstract class EntityRewriter<C extends ClientboundPacketType, T extends 
             }
         }
         return identifier;
+    }
+
+    @Override
+    public @Nullable EntityType typeFromId(final String type) {
+        final FullMappings mappings = protocol().getMappingData().getEntityMappings();
+        final int id = trackMappedType ? mappings.mappedId(type) : mappings.id(type);
+        return id == -1 ? null : typeFromId(id);
     }
 
     /**
@@ -267,7 +298,7 @@ public abstract class EntityRewriter<C extends ClientboundPacketType, T extends 
         });
     }
 
-    public void registerTrackerWithData(C packetType, EntityType fallingBlockType) {
+    public void registerTrackerWithData(C packetType) {
         protocol.registerClientbound(packetType, new PacketHandlers() {
             @Override
             public void register() {
@@ -284,7 +315,7 @@ public abstract class EntityRewriter<C extends ClientboundPacketType, T extends 
                 handler(wrapper -> {
                     int entityId = wrapper.get(Types.VAR_INT, 0);
                     EntityType entityType = tracker(wrapper.user()).entityType(entityId);
-                    if (entityType == fallingBlockType) {
+                    if (entityType == typeFromId("falling_block")) {
                         wrapper.set(Types.INT, 0, protocol.getMappingData().getNewBlockStateId(wrapper.get(Types.INT, 0)));
                     }
                 });
@@ -292,7 +323,7 @@ public abstract class EntityRewriter<C extends ClientboundPacketType, T extends 
         });
     }
 
-    public void registerTrackerWithData1_19(C packetType, EntityType fallingBlockType) {
+    public void registerTrackerWithData1_19(C packetType) {
         protocol.registerClientbound(packetType, wrapper -> {
             final int entityId = wrapper.passthrough(Types.VAR_INT);
             wrapper.passthrough(Types.UUID); // Entity UUID
@@ -306,14 +337,14 @@ public abstract class EntityRewriter<C extends ClientboundPacketType, T extends 
             final int data = wrapper.passthrough(Types.VAR_INT);
 
             final EntityType entityType = trackAndRewrite(wrapper, entityTypeId, entityId);
-            if (protocol.getMappingData() != null && entityType == fallingBlockType) {
+            if (protocol.getMappingData() != null && entityType == typeFromId("falling_block")) {
                 final int mappedBlockStateId = protocol.getMappingData().getNewBlockStateId(data);
                 wrapper.set(Types.VAR_INT, 2, mappedBlockStateId);
             }
         });
     }
 
-    public void registerTrackerWithData1_21_9(C packetType, EntityType fallingBlockType) {
+    public void registerTrackerWithData1_21_9(C packetType) {
         protocol.registerClientbound(packetType, wrapper -> {
             final int entityId = wrapper.passthrough(Types.VAR_INT);
             wrapper.passthrough(Types.UUID); // Entity UUID
@@ -327,7 +358,7 @@ public abstract class EntityRewriter<C extends ClientboundPacketType, T extends 
             wrapper.passthrough(Types.BYTE); // Head yaw
             final int data = wrapper.passthrough(Types.VAR_INT);
             final EntityType entityType = trackAndRewrite(wrapper, entityTypeId, entityId);
-            if (protocol.getMappingData() != null && entityType == fallingBlockType) {
+            if (protocol.getMappingData() != null && entityType == typeFromId("falling_block")) {
                 final int mappedBlockStateId = protocol.getMappingData().getNewBlockStateId(data);
                 wrapper.set(Types.VAR_INT, 2, mappedBlockStateId);
             }

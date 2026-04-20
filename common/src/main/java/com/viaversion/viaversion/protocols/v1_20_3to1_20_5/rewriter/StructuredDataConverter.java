@@ -267,7 +267,8 @@ public final class StructuredDataConverter {
 
             final CompoundTag propertiesTag = new CompoundTag();
             for (final GameProfile.Property property : data.properties()) {
-                final ListTag<CompoundTag> values = new ListTag<>(CompoundTag.class);
+                ListTag<CompoundTag> values = propertiesTag.getListTag(property.name(), CompoundTag.class);
+                if (values == null) values = new ListTag<>(CompoundTag.class);
                 final CompoundTag propertyTag = new CompoundTag();
                 propertyTag.putString("Value", property.value());
                 if (property.signature() != null) {
@@ -654,6 +655,10 @@ public final class StructuredDataConverter {
             if (backupInconvertibleData) {
                 getBackupTag(tag).putInt("ominous_bottle_amplifier", data);
             }
+        });
+        register(StructuredDataKey.MAP_POST_PROCESSING, (data, tag) -> {
+        });
+        register(StructuredDataKey.CREATIVE_SLOT_LOCK, (data, tag) -> {
         });
     }
 

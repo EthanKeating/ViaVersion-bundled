@@ -21,11 +21,9 @@ import com.viaversion.viaversion.api.minecraft.entities.EntityType;
 import com.viaversion.viaversion.api.minecraft.entities.EntityTypes1_21_11;
 import com.viaversion.viaversion.api.minecraft.entitydata.types.EntityDataTypes26_1;
 import com.viaversion.viaversion.protocols.v1_21_11to26_1.packet.ClientboundPacket26_1;
-import com.viaversion.viaversion.protocols.v1_21_11to26_1.packet.ClientboundPackets26_1;
 import com.viaversion.viaversion.rewriter.EntityRewriter;
 
 // Replace if needed
-//  VersionedTypes
 //  EntityTypes1_21_11
 final class EntityPacketRewriter99_1 extends EntityRewriter<ClientboundPacket26_1, Protocol98_1To99_1> {
 
@@ -35,28 +33,19 @@ final class EntityPacketRewriter99_1 extends EntityRewriter<ClientboundPacket26_
 
     @Override
     public void registerPackets() {
-        // Tracks entities, applies entity data rewrites registered below, untracks entities
-        registerTrackerWithData1_21_9(ClientboundPackets26_1.ADD_ENTITY, EntityTypes1_21_11.FALLING_BLOCK);
-        registerSetEntityData(ClientboundPackets26_1.SET_ENTITY_DATA);
-        registerRemoveEntities(ClientboundPackets26_1.REMOVE_ENTITIES);
-        registerPlayerAbilities(ClientboundPackets26_1.PLAYER_ABILITIES);
-        registerGameEvent(ClientboundPackets26_1.GAME_EVENT);
-        registerLogin1_20_5(ClientboundPackets26_1.LOGIN);
-        registerRespawn1_20_5(ClientboundPackets26_1.RESPAWN);
+        // Common entity registrations (including LOGIN, RESPAWN) are handled by SharedRegistrations.
     }
 
     @Override
     protected void registerRewrites() {
         final EntityDataTypes26_1 entityDataTypes = protocol.mappedTypes().entityDataTypes();
-        filter().mapDataType(entityDataTypes::byId);
-        /* ... or something this if entity data classes changed
-        filter().mapDataType(typeId -> {
-            int id = typeId;
-            if (id >= SomeAddedIndex) {
-                id++;
-            }
-            return entityDataTypes.byId(id);
-        });*/
+        dataTypeMapper().register();
+        /* ... or like this for additions and removals that are not at the very end
+        dataTypeMapper()
+            .added(entityDataTypes.catSoundVariant)
+            .removed(entityDataTypes.cowSoundVariant)
+            .skip(entityDataTypes.pigSoundVariant) // if neither removed nor added, but the value type has to be changed separately
+            .register();*/
 
         // Registers registry type id changes
         registerEntityDataTypeHandler(
@@ -68,12 +57,6 @@ final class EntityPacketRewriter99_1 extends EntityRewriter<ClientboundPacket26_
             entityDataTypes.componentType,
             entityDataTypes.optionalComponentType
         );
-    }
-
-    @Override
-    public void onMappingDataLoaded() {
-        // IF ENTITY TYPES CHANGED: Automatically map entity id changes AFTER entity ids have been loaded
-        mapTypes();
     }
 
     @Override

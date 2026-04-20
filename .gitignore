@@ -21,6 +21,8 @@ _upstream/
 *.ipr
 *.iws
 
+benchmark/
+
 # VSCode
 
 .settings/

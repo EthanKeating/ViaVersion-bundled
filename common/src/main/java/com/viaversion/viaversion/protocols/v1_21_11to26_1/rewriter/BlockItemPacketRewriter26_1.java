@@ -27,6 +27,7 @@ import com.viaversion.viaversion.api.minecraft.chunks.DataPalette;
 import com.viaversion.viaversion.api.minecraft.chunks.PaletteType;
 import com.viaversion.viaversion.api.minecraft.data.StructuredDataContainer;
 import com.viaversion.viaversion.api.minecraft.data.StructuredDataKey;
+import com.viaversion.viaversion.api.minecraft.data.version.StructuredDataKeys1_21_11;
 import com.viaversion.viaversion.api.minecraft.item.Item;
 import com.viaversion.viaversion.api.minecraft.item.StructuredItem;
 import com.viaversion.viaversion.api.minecraft.item.data.BlocksAttacks;
@@ -37,18 +38,11 @@ import com.viaversion.viaversion.api.minecraft.item.data.JukeboxPlayable;
 import com.viaversion.viaversion.api.minecraft.item.data.ProvidesBannerPatterns;
 import com.viaversion.viaversion.api.minecraft.item.data.ProvidesTrimMaterial;
 import com.viaversion.viaversion.api.protocol.Protocol;
-import com.viaversion.viaversion.api.type.types.chunk.ChunkType1_21_5;
-import com.viaversion.viaversion.api.type.types.chunk.ChunkType26_1;
 import com.viaversion.viaversion.protocols.v1_21_11to26_1.Protocol1_21_11To26_1;
 import com.viaversion.viaversion.protocols.v1_21_11to26_1.packet.ServerboundPacket26_1;
-import com.viaversion.viaversion.protocols.v1_21_11to26_1.packet.ServerboundPackets26_1;
-import com.viaversion.viaversion.protocols.v1_21_4to1_21_5.rewriter.RecipeDisplayRewriter1_21_5;
 import com.viaversion.viaversion.protocols.v1_21_9to1_21_11.packet.ClientboundPacket1_21_11;
 import com.viaversion.viaversion.protocols.v1_21_9to1_21_11.packet.ClientboundPackets1_21_11;
-import com.viaversion.viaversion.rewriter.BlockRewriter;
-import com.viaversion.viaversion.rewriter.RecipeDisplayRewriter;
 import com.viaversion.viaversion.rewriter.StructuredItemRewriter;
-import com.viaversion.viaversion.rewriter.block.BlockRewriter1_21_5;
 import com.viaversion.viaversion.util.Either;
 import com.viaversion.viaversion.util.Key;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -61,62 +55,34 @@ public final class BlockItemPacketRewriter26_1 extends StructuredItemRewriter<Cl
 
     @Override
     public void registerPackets() {
-        final BlockRewriter<ClientboundPacket1_21_11> blockRewriter = new BlockRewriter1_21_5<>(protocol);
-        blockRewriter.registerBlockEvent(ClientboundPackets1_21_11.BLOCK_EVENT);
-        blockRewriter.registerBlockUpdate(ClientboundPackets1_21_11.BLOCK_UPDATE);
-        blockRewriter.registerSectionBlocksUpdate1_20(ClientboundPackets1_21_11.SECTION_BLOCKS_UPDATE);
-        blockRewriter.registerLevelEvent1_21(ClientboundPackets1_21_11.LEVEL_EVENT, 2001);
-        blockRewriter.registerBlockEntityData(ClientboundPackets1_21_11.BLOCK_ENTITY_DATA);
-        protocol.registerClientbound(ClientboundPackets1_21_11.LEVEL_CHUNK_WITH_LIGHT, wrapper -> {
-            final Chunk chunk = blockRewriter.handleChunk1_19(wrapper, ChunkType1_21_5::new, ChunkType26_1::new);
+        protocol.replaceClientbound(ClientboundPackets1_21_11.LEVEL_CHUNK_WITH_LIGHT, wrapper -> {
+            final Chunk chunk = protocol.getBlockRewriter().handleChunk1_18(wrapper);
             for (final ChunkSection section : chunk.getSections()) {
+                if (section.getNonAirBlocksCount() == 0) {
+                    continue;
+                }
+
                 final DataPalette blockPalette = section.palette(PaletteType.BLOCKS);
-                for (int i = 0; i < blockPalette.size(); i++) {
-                    final int id = blockPalette.idByIndex(i);
+                for (int idx = 0; idx < ChunkSection.SIZE; idx++) {
+                    final int id = blockPalette.idAt(idx);
                     if (Protocol1_21_11To26_1.MAPPINGS.fluidBlockStates().contains(id)) {
                         // Needed for certain client-side fluid interactions
                         section.setFluidCount(section.getFluidCount() + 1);
                     }
                 }
             }
-            blockRewriter.handleBlockEntities(chunk, wrapper.user());
+            protocol.getBlockRewriter().handleBlockEntities(chunk, wrapper.user());
         });
-
-        registerSetCursorItem(ClientboundPackets1_21_11.SET_CURSOR_ITEM);
-        registerSetPlayerInventory(ClientboundPackets1_21_11.SET_PLAYER_INVENTORY);
-        registerCooldown1_21_2(ClientboundPackets1_21_11.COOLDOWN);
-        registerSetContent1_21_2(ClientboundPackets1_21_11.CONTAINER_SET_CONTENT);
-        registerSetSlot1_21_2(ClientboundPackets1_21_11.CONTAINER_SET_SLOT);
-        registerAdvancements1_20_3(ClientboundPackets1_21_11.UPDATE_ADVANCEMENTS);
-        registerSetEquipment(ClientboundPackets1_21_11.SET_EQUIPMENT);
-        registerMerchantOffers1_20_5(ClientboundPackets1_21_11.MERCHANT_OFFERS);
-        registerContainerClick1_21_5(ServerboundPackets26_1.CONTAINER_CLICK);
-        registerSetCreativeModeSlot1_21_5(ServerboundPackets26_1.SET_CREATIVE_MODE_SLOT);
-
-        final RecipeDisplayRewriter<ClientboundPacket1_21_11> recipeRewriter = new RecipeDisplayRewriter1_21_5<>(protocol);
-        recipeRewriter.registerUpdateRecipes(ClientboundPackets1_21_11.UPDATE_RECIPES);
-        recipeRewriter.registerRecipeBookAdd(ClientboundPackets1_21_11.RECIPE_BOOK_ADD);
-        recipeRewriter.registerPlaceGhostRecipe(ClientboundPackets1_21_11.PLACE_GHOST_RECIPE);
     }
 
     @Override
     protected void handleItemDataComponentsToClient(final UserConnection connection, final Item item, final StructuredDataContainer container) {
-        // Uses null instead of empty items now
-        final Item[] containerData = container.get(protocol.types().structuredDataKeys().container);
-        if (containerData != null) {
-            for (int i = 0; i < containerData.length; i++) {
-                if (containerData[i].isEmpty()) {
-                    containerData[i] = null;
-                }
-            }
-        }
-
-        upgradeData(protocol, container);
+        upgradeData(protocol, protocol.types().structuredDataKeys(), container);
         super.handleItemDataComponentsToClient(connection, item, container);
     }
 
-    public static void upgradeData(final Protocol<?, ?, ?, ?> protocol, final StructuredDataContainer container) {
-        container.replace(StructuredDataKey.JUKEBOX_PLAYABLE1_21_5, StructuredDataKey.JUKEBOX_PLAYABLE26_1, jukeboxPlayable -> upgradeHolder(protocol, jukeboxPlayable.song(), "jukebox_playable"));
+    public static void upgradeData(final Protocol<?, ?, ?, ?> protocol, final StructuredDataKeys1_21_11 dataKeys, final StructuredDataContainer container) {
+        container.replace(StructuredDataKey.JUKEBOX_PLAYABLE1_21_5, StructuredDataKey.JUKEBOX_PLAYABLE26_1, jukeboxPlayable -> upgradeHolder(protocol, jukeboxPlayable.song(), "jukebox_song"));
         container.replace(StructuredDataKey.INSTRUMENT1_21_5, StructuredDataKey.INSTRUMENT26_1, instrument -> upgradeHolder(protocol, instrument, "instrument"));
         container.replace(StructuredDataKey.PROVIDES_TRIM_MATERIAL1_21_5, StructuredDataKey.PROVIDES_TRIM_MATERIAL26_1, providesTrimMaterial -> upgradeHolder(protocol, providesTrimMaterial.material(), "trim_material"));
         container.replace(StructuredDataKey.CHICKEN_VARIANT1_21_5, StructuredDataKey.CHICKEN_VARIANT26_1, chickenVariant -> upgradeEitherVariant(protocol, chickenVariant, "chicken_variant"));
@@ -125,6 +91,16 @@ public final class BlockItemPacketRewriter26_1 extends StructuredItemRewriter<Cl
         container.replace(StructuredDataKey.PROVIDES_BANNER_PATTERNS1_21_5, StructuredDataKey.PROVIDES_BANNER_PATTERNS26_1, key -> new ProvidesBannerPatterns(HolderSet.of(key.original())));
         container.replace(StructuredDataKey.DAMAGE_RESISTANT1_21_2, StructuredDataKey.DAMAGE_RESISTANT26_1, damageResistant -> new DamageResistant26_1(HolderSet.of(damageResistant.typesTagKey().original())));
         container.replaceKey(StructuredDataKey.BLOCKS_ATTACKS1_21_5, StructuredDataKey.BLOCKS_ATTACKS26_1);
+
+        // Uses null instead of empty items now
+        final Item[] containerData = container.get(dataKeys.container);
+        if (containerData != null) {
+            for (int i = 0; i < containerData.length; i++) {
+                if (containerData[i].isEmpty()) {
+                    containerData[i] = null;
+                }
+            }
+        }
     }
 
     private static @Nullable Integer upgradeEitherVariant(final Protocol<?, ?, ?, ?> protocol, final Either<Integer, String> eitherHolder, final String registry) {
@@ -146,20 +122,11 @@ public final class BlockItemPacketRewriter26_1 extends StructuredItemRewriter<Cl
 
     @Override
     protected void handleItemDataComponentsToServer(final UserConnection connection, final Item item, final StructuredDataContainer container) {
-        final Item[] containerData = container.get(protocol.mappedTypes().structuredDataKeys().container);
-        if (containerData != null) {
-            for (int i = 0; i < containerData.length; i++) {
-                if (containerData[i] == null) {
-                    containerData[i] = StructuredItem.empty();
-                }
-            }
-        }
-
-        downgradeData(container);
+        downgradeData(protocol.mappedTypes().structuredDataKeys(), container);
         super.handleItemDataComponentsToServer(connection, item, container);
     }
 
-    public static void downgradeData(final StructuredDataContainer container) {
+    public static void downgradeData(final StructuredDataKeys1_21_11 dataKeys, final StructuredDataContainer container) {
         container.replace(StructuredDataKey.JUKEBOX_PLAYABLE26_1, StructuredDataKey.JUKEBOX_PLAYABLE1_21_5, jukeboxPlayable -> new JukeboxPlayable(jukeboxPlayable, true));
         container.replace(StructuredDataKey.INSTRUMENT26_1, StructuredDataKey.INSTRUMENT1_21_5, EitherHolder::of);
         container.replace(StructuredDataKey.PROVIDES_TRIM_MATERIAL26_1, StructuredDataKey.PROVIDES_TRIM_MATERIAL1_21_5, providesTrimMaterial -> new ProvidesTrimMaterial(EitherHolder.of(providesTrimMaterial)));
@@ -182,6 +149,15 @@ public final class BlockItemPacketRewriter26_1 extends StructuredItemRewriter<Cl
         container.remove(StructuredDataKey.CHICKEN_SOUND_VARIANT);
         container.remove(StructuredDataKey.COW_SOUND_VARIANT);
         container.remove(StructuredDataKey.PIG_SOUND_VARIANT);
+
+        final Item[] containerData = container.get(dataKeys.container);
+        if (containerData != null) {
+            for (int i = 0; i < containerData.length; i++) {
+                if (containerData[i] == null) {
+                    containerData[i] = StructuredItem.empty();
+                }
+            }
+        }
     }
 
     private static @Nullable Key tagOrNull(final HolderSet holderSet) {
