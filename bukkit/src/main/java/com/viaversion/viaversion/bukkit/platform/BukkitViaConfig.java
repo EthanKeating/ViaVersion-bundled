@@ -29,6 +29,7 @@ public class BukkitViaConfig extends AbstractViaConfig {
     private boolean quickMoveActionFix;
     private boolean hitboxFix1_9;
     private boolean hitboxFix1_14;
+    private boolean disable1_14Swimming;
     private String blockConnectionMethod;
     private boolean armorToggleFix;
     private boolean registerUserConnectionOnJoin;
@@ -49,6 +50,7 @@ public class BukkitViaConfig extends AbstractViaConfig {
         quickMoveActionFix = getBoolean("quick-move-action-fix", false);
         hitboxFix1_9 = getBoolean("change-1_9-hitbox", false);
         hitboxFix1_14 = getBoolean("change-1_14-hitbox", false);
+        disable1_14Swimming = getBoolean("disable-1_14-swimming", false);
         blockConnectionMethod = getString("blockconnection-method", "packet");
         armorToggleFix = getBoolean("armor-toggle-fix", true);
         useNewDeathMessages = getBoolean("use-new-deathmessages", true);
@@ -82,6 +84,11 @@ public class BukkitViaConfig extends AbstractViaConfig {
     @Override
     public boolean is1_14HitboxFix() {
         return hitboxFix1_14;
+    }
+
+    @Override
+    public boolean isDisable1_14Swimming() {
+        return disable1_14Swimming;
     }
 
     @Override

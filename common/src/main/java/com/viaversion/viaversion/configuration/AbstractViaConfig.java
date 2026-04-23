@@ -42,7 +42,7 @@ import org.checkerframework.checker.nullness.qual.Nullable;
 public class AbstractViaConfig extends Config implements ViaVersionConfig {
 
     public static final List<String> BUKKIT_ONLY_OPTIONS = Arrays.asList("register-userconnections-on-join", "quick-move-action-fix",
-        "change-1_9-hitbox", "change-1_14-hitbox", "blockconnection-method", "armor-toggle-fix", "use-new-deathmessages",
+        "change-1_9-hitbox", "change-1_14-hitbox", "disable-1_14-swimming", "blockconnection-method", "armor-toggle-fix", "use-new-deathmessages",
         "item-cache", "nms-player-ticking");
     public static final List<String> VELOCITY_ONLY_OPTIONS = Arrays.asList("velocity-ping-interval", "velocity-ping-save", "velocity-servers");
 
@@ -552,6 +552,11 @@ public class AbstractViaConfig extends Config implements ViaVersionConfig {
 
     @Override
     public boolean is1_14HitboxFix() {
+        return false;
+    }
+
+    @Override
+    public boolean isDisable1_14Swimming() {
         return false;
     }
 

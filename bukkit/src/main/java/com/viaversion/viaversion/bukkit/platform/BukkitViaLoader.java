@@ -102,9 +102,9 @@ public class BukkitViaLoader implements ViaPlatformLoader {
 
         if (serverProtocolVersion.olderThan(ProtocolVersion.v1_14)) {
             boolean use1_9Fix = plugin.getConf().is1_9HitboxFix() && serverProtocolVersion.olderThan(ProtocolVersion.v1_9);
-            if (use1_9Fix || plugin.getConf().is1_14HitboxFix()) {
+            if (use1_9Fix || plugin.getConf().is1_14HitboxFix() || plugin.getConf().isDisable1_14Swimming()) {
                 try {
-                    new PlayerSneakListener(plugin, use1_9Fix, plugin.getConf().is1_14HitboxFix()).register();
+                    new PlayerSneakListener(plugin, use1_9Fix, plugin.getConf().is1_14HitboxFix(), plugin.getConf().isDisable1_14Swimming()).register();
                 } catch (ReflectiveOperationException e) {
                     Via.getPlatform().getLogger().log(Level.WARNING, "Could not load hitbox fix - please report this on our GitHub", e);
                 }

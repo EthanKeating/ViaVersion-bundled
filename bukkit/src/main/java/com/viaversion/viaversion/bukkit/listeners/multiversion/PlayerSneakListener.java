@@ -21,10 +21,17 @@ import com.viaversion.viaversion.ViaVersionPlugin;
 import com.viaversion.viaversion.api.Via;
 import com.viaversion.viaversion.api.connection.ProtocolInfo;
 import com.viaversion.viaversion.api.connection.UserConnection;
+import com.viaversion.viaversion.api.minecraft.entitydata.EntityData;
+import com.viaversion.viaversion.api.protocol.packet.PacketWrapper;
 import com.viaversion.viaversion.api.protocol.version.ProtocolVersion;
+import com.viaversion.viaversion.api.type.Types;
+import com.viaversion.viaversion.api.type.types.version.Types1_14;
 import com.viaversion.viaversion.bukkit.listeners.ViaBukkitListener;
+import com.viaversion.viaversion.protocols.v1_13_2to1_14.Protocol1_13_2To1_14;
+import com.viaversion.viaversion.protocols.v1_13_2to1_14.packet.ClientboundPackets1_14;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
@@ -37,6 +44,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerToggleSneakEvent;
+import org.bukkit.potion.PotionEffectType;
 
 public class PlayerSneakListener extends ViaBukkitListener {
     private static final float STANDING_HEIGHT = 1.8F;
@@ -46,17 +54,20 @@ public class PlayerSneakListener extends ViaBukkitListener {
 
     private final boolean is1_9Fix;
     private final boolean is1_14Fix;
+    private final boolean disable1_14Swimming;
     private Map<Player, Boolean> sneaking; // true = 1.14+, else false
     private Set<UUID> sneakingUuids;
     private final Method getHandle;
     private Method setSize;
+    private final Method glidingMethod;
 
     private boolean useCache;
 
-    public PlayerSneakListener(ViaVersionPlugin plugin, boolean is1_9Fix, boolean is1_14Fix) throws ReflectiveOperationException {
+    public PlayerSneakListener(ViaVersionPlugin plugin, boolean is1_9Fix, boolean is1_14Fix, boolean disable1_14Swimming) throws ReflectiveOperationException {
         super(plugin, null);
         this.is1_9Fix = is1_9Fix;
         this.is1_14Fix = is1_14Fix;
+        this.disable1_14Swimming = disable1_14Swimming;
 
         final String packageName = plugin.getServer().getClass().getPackage().getName();
         getHandle = Class.forName(packageName + ".entity.CraftPlayer").getMethod("getHandle");
@@ -69,6 +80,12 @@ public class PlayerSneakListener extends ViaBukkitListener {
             // Don't catch this one
             setSize = entityPlayerClass.getMethod("a", Float.TYPE, Float.TYPE);
         }
+        Method isGliding = null;
+        try {
+            isGliding = Player.class.getMethod("isGliding");
+        } catch (NoSuchMethodException ignored) {
+        }
+        this.glidingMethod = isGliding;
 
 
         // From 1.9 upwards the server hitbox is set in every entity tick, so we have to reset it everytime
@@ -97,18 +114,37 @@ public class PlayerSneakListener extends ViaBukkitListener {
         if (info == null) return;
 
         ProtocolVersion protocolVersion = info.protocolVersion();
-        if (is1_14Fix && protocolVersion.newerThanOrEqualTo(ProtocolVersion.v1_14)) {
-            setHeight(player, event.isSneaking() ? HEIGHT_1_14 : STANDING_HEIGHT);
-            if (event.isSneaking())
-                sneakingUuids.add(player.getUniqueId());
-            else
-                sneakingUuids.remove(player.getUniqueId());
+        if (protocolVersion.newerThanOrEqualTo(ProtocolVersion.v1_14)) {
+            if (disable1_14Swimming) {
+                // Keep the pre-1.14 crouch height so players can still sneak without gaining the 1.14 crawl hitbox.
+                setHeight(player, event.isSneaking() ? HEIGHT_1_9 : STANDING_HEIGHT);
+                if (sneakingUuids != null) {
+                    sneakingUuids.remove(player.getUniqueId());
+                }
+                if (useCache) {
+                    if (event.isSneaking())
+                        sneaking.put(player, false);
+                    else
+                        sneaking.remove(player);
+                }
+                schedulePoseUpdate(player);
+                return;
+            }
 
-            if (!useCache) return;
-            if (event.isSneaking())
-                sneaking.put(player, true);
-            else
-                sneaking.remove(player);
+            if (is1_14Fix) {
+                setHeight(player, event.isSneaking() ? HEIGHT_1_14 : STANDING_HEIGHT);
+                if (event.isSneaking())
+                    sneakingUuids.add(player.getUniqueId());
+                else
+                    sneakingUuids.remove(player.getUniqueId());
+
+                if (!useCache) return;
+                if (event.isSneaking())
+                    sneaking.put(player, true);
+                else
+                    sneaking.remove(player);
+                return;
+            }
         } else if (is1_9Fix && protocolVersion.newerThanOrEqualTo(ProtocolVersion.v1_9)) {
             setHeight(player, event.isSneaking() ? HEIGHT_1_9 : STANDING_HEIGHT);
             if (!useCache) return;
@@ -139,10 +175,7 @@ public class PlayerSneakListener extends ViaBukkitListener {
 
     @EventHandler
     public void playerQuit(PlayerQuitEvent event) {
-        if (sneaking != null)
-            sneaking.remove(event.getPlayer());
-        if (sneakingUuids != null)
-            sneakingUuids.remove(event.getPlayer().getUniqueId());
+        clearSneakingState(event.getPlayer());
     }
 
     private void setHeight(Player player, float height) {
@@ -150,6 +183,88 @@ public class PlayerSneakListener extends ViaBukkitListener {
             setSize.invoke(getHandle.invoke(player), DEFAULT_WIDTH, height);
         } catch (IllegalAccessException | InvocationTargetException e) {
             Via.getPlatform().getLogger().log(Level.SEVERE, "Failed to set player height", e);
+        }
+    }
+
+    private void clearSneakingState(Player player) {
+        if (sneaking != null)
+            sneaking.remove(player);
+        if (sneakingUuids != null)
+            sneakingUuids.remove(player.getUniqueId());
+    }
+
+    private void schedulePoseUpdate(Player player) {
+        // Wait one tick so the server has applied the sneak toggle before we resend a non-swimming pose.
+        getPlugin().getServer().getScheduler().scheduleSyncDelayedTask(getPlugin(), () -> sendPoseUpdate(player), 1L);
+    }
+
+    private void sendPoseUpdate(Player player) {
+        if (!player.isOnline()) {
+            return;
+        }
+
+        UserConnection userConnection = getUserConnection(player);
+        if (userConnection == null) {
+            return;
+        }
+
+        ProtocolInfo info = userConnection.getProtocolInfo();
+        if (info == null || info.protocolVersion().olderThan(ProtocolVersion.v1_14)) {
+            return;
+        }
+
+        PacketWrapper packet = PacketWrapper.create(ClientboundPackets1_14.SET_ENTITY_DATA, null, userConnection);
+        packet.write(Types.VAR_INT, player.getEntityId());
+        packet.write(Types1_14.ENTITY_DATA_LIST, Arrays.asList(
+            new EntityData(0, Types1_14.ENTITY_DATA_TYPES.byteType, playerFlags(player)),
+            new EntityData(6, Types1_14.ENTITY_DATA_TYPES.poseType, playerPose(player))
+        ));
+        packet.scheduleSend(Protocol1_13_2To1_14.class);
+    }
+
+    private byte playerFlags(Player player) {
+        byte flags = 0;
+        if (player.getFireTicks() > 0) {
+            flags |= 0x01;
+        }
+        if (player.isSneaking()) {
+            flags |= 0x02;
+        }
+        if (player.isSprinting()) {
+            flags |= 0x08;
+        }
+        if (player.hasPotionEffect(PotionEffectType.INVISIBILITY)) {
+            flags |= 0x20;
+        }
+        if (isGliding(player)) {
+            flags |= (byte) 0x80;
+        }
+        return flags;
+    }
+
+    private int playerPose(Player player) {
+        if (isGliding(player)) {
+            return 1;
+        }
+        if (player.isSleeping()) {
+            return 2;
+        }
+        if (player.isSneaking()) {
+            return 5;
+        }
+        return 0;
+    }
+
+    private boolean isGliding(Player player) {
+        if (glidingMethod == null) {
+            return false;
+        }
+
+        try {
+            return (boolean) glidingMethod.invoke(player);
+        } catch (IllegalAccessException | InvocationTargetException e) {
+            Via.getPlatform().getLogger().log(Level.SEVERE, "Failed to get player gliding state", e);
+            return false;
         }
     }
 }

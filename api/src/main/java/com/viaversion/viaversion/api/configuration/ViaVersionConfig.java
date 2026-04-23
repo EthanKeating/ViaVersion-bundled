@@ -418,6 +418,13 @@ public interface ViaVersionConfig extends Config {
     boolean is1_14HitboxFix();
 
     /**
+     * Prevents 1.14+ clients on sub 1.14 servers from using the swimming/crawling pose.
+     *
+     * @return true if enabled
+     */
+    boolean isDisable1_14Swimming();
+
+    /**
      * Fixes non full blocks having 0 light for 1.14+ clients on sub 1.14 servers.
      *
      * @return true if enabled
