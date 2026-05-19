@@ -22,6 +22,8 @@
  */
 package com.viaversion.viaversion.api.minecraft.chunks;
 
+import java.util.function.IntUnaryOperator;
+
 public interface DataPalette {
 
     /**
@@ -109,6 +111,21 @@ public interface DataPalette {
     void setPaletteIndexAt(int sectionCoordinate, int index);
 
     /**
+     * Replaces every id in the palette by applying the given mapper.
+     *
+     * @param mapper function from old id to new id
+     */
+    default void replaceIds(IntUnaryOperator mapper) {
+        for (int i = 0; i < this.size(); i++) {
+            final int id = this.idByIndex(i);
+            final int newId = mapper.applyAsInt(id);
+            if (newId != id) {
+                this.setIdByIndex(i, newId);
+            }
+        }
+    }
+
+    /**
      * Adds a new id to the palette.
      *
      * @param id id value
@@ -121,7 +138,13 @@ public interface DataPalette {
      * @param oldId old id
      * @param newId new id
      */
-    void replaceId(int oldId, int newId);
+    default void replaceId(int oldId, int newId) {
+        for (int i = 0; i < this.size(); i++) {
+            if (this.idByIndex(i) == oldId) {
+                this.setIdByIndex(i, newId);
+            }
+        }
+    }
 
     /**
      * Returns the size of the palette.

@@ -344,6 +344,15 @@ public final class BlockItemPacketRewriter1_20_5 extends ItemRewriter<Clientboun
                 recipeRewriter.handleRecipeType(wrapper, type);
             }
         });
+
+        protocol.replaceServerbound(ServerboundPackets1_20_5.SET_CREATIVE_MODE_SLOT, wrapper -> {
+            if (!protocol.getEntityRewriter().tracker(wrapper.user()).canInstaBuild()) {
+                wrapper.cancel();
+                return;
+            }
+            wrapper.passthrough(Types.SHORT); // Slot
+            wrapper.write(itemType(), handleItemToServer(wrapper.user(), wrapper.read(mappedItemType())));
+        });
     }
 
     public Item handleNonEmptyItemToClient(final UserConnection connection, @Nullable Item item) {
@@ -1076,7 +1085,7 @@ public final class BlockItemPacketRewriter1_20_5 extends ItemRewriter<Clientboun
     }
 
     private void updateEffects(final ListTag<CompoundTag> effects, final StructuredDataContainer data) {
-        final SuspiciousStewEffect[] suspiciousStewEffects = new SuspiciousStewEffect[effects.size()];
+        final List<SuspiciousStewEffect> suspiciousStewEffects = new ArrayList<>();
         for (int i = 0; i < effects.size(); i++) {
             final CompoundTag effect = effects.get(i);
             final String effectIdString = effect.getString("id", "luck");
@@ -1087,10 +1096,10 @@ public final class BlockItemPacketRewriter1_20_5 extends ItemRewriter<Clientboun
                     effectId,
                     duration
                 );
-                suspiciousStewEffects[i] = stewEffect;
+                suspiciousStewEffects.add(stewEffect);
             }
         }
-        data.set(StructuredDataKey.SUSPICIOUS_STEW_EFFECTS, suspiciousStewEffects);
+        data.set(StructuredDataKey.SUSPICIOUS_STEW_EFFECTS, suspiciousStewEffects.toArray(SuspiciousStewEffect[]::new));
     }
 
     private void updateLodestoneTracker(final boolean tracked, final CompoundTag lodestonePosTag, final String lodestoneDimension, final StructuredDataContainer data) {
